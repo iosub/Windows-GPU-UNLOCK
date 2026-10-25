@@ -53,7 +53,9 @@ static VOID DumpImage(CAPTURE *c,EFI_FILE_PROTOCOL *root,EFI_HANDLE img) {
   CHAR16 name[40];UINTN i=DumpIndex++,k=0;
   Text(c,"img dump index=");Hex(c,i,4);End(c);
   while(ImgPrefix[k])name[k]=ImgPrefix[k],k++;
-  name[k++]=(CHAR16)('0'+(i/10)%10);name[k++]=(CHAR16)('0'+i%10);
+  /* Three digits: larger AMI images expose more than 100 driver bindings. */
+  if(i>999){Problem(c,"img-index",EFI_OUT_OF_RESOURCES);return;}
+  name[k++]=(CHAR16)('0'+(i/100)%10);name[k++]=(CHAR16)('0'+(i/10)%10);name[k++]=(CHAR16)('0'+i%10);
   name[k++]='.';name[k++]='B';name[k++]='I';name[k++]='N';name[k]=0;
   EFI_FILE_PROTOCOL *f=NULL;
   EFI_STATUS s=root->Open(root,&f,name,EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE|EFI_FILE_MODE_CREATE,0);

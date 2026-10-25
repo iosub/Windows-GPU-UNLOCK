@@ -33,3 +33,4 @@ research/headless/registration.local.json
 research/headless/r2-registration.local.json
 research/headless/headless-registration.local.json
 internal-boot/deps/
+research/z890/*.local.json
