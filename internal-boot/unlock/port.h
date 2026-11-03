@@ -7,8 +7,20 @@
 
 /* Secondary display adapter on the B650M profile (Raphael iGPU). The
    aggregate-console profile has no second adapter. */
+#ifdef GU_PROFILE_Z890_3090_DELL
+/* Same role on the Z890: the display that stays is the Intel iGPU, 00:02.0. */
+#define GU_AMD_ID 0x7d678086U
+#define GU_AMD_SUBSYSTEM 0x88ef1043U
+#define GU_AMD_BUS 0U
+#define GU_AMD_DEVICE 2U
+#define GU_AMD_PATH_TO_PARENT 18U
+#else
 #define GU_AMD_ID 0x164e1002U
 #define GU_AMD_SUBSYSTEM 0x88771043U
+#define GU_AMD_BUS 12U
+#define GU_AMD_DEVICE 0U
+#define GU_AMD_PATH_TO_PARENT 24U
+#endif
 /* The default artifact is read-only. Legacy host containment tests are never
    a production enable switch; experimental firmware requires its own define. */
 #if defined(GU_HOST_WRITE_TEST) && __STDC_HOSTED__ != 1

@@ -76,11 +76,11 @@ static BOOLEAN AmdGopParent(EFI_DEVICE_PATH_PROTOCOL *Path) {
   EFI_PCI_IO_PROTOCOL *pci=NULL;UINT32 id=0,subsystem=0;UINTN s,b,d,f;
   if(!Gu.bs->LocateDevicePath)return FALSE;
   EFI_STATUS status=Gu.bs->LocateDevicePath(&PciGuid,&remaining,&parent);
-  if(EFI_ERROR(status) || !parent || (UINT8 *)remaining!=(UINT8 *)Path+24)return FALSE;
+  if(EFI_ERROR(status) || !parent || (UINT8 *)remaining!=(UINT8 *)Path+GU_AMD_PATH_TO_PARENT)return FALSE;
   status=Gu.bs->HandleProtocol(parent,&PciGuid,(VOID **)&pci);
   if(EFI_ERROR(status) || !pci || !pci->GetLocation || !pci->Pci.Read)return FALSE;
   status=pci->GetLocation(pci,&s,&b,&d,&f);
-  if(EFI_ERROR(status) || s || b!=12 || d || f)return FALSE;
+  if(EFI_ERROR(status) || s || b!=GU_AMD_BUS || d!=GU_AMD_DEVICE || f)return FALSE;
   status=pci->Pci.Read(pci,EfiPciIoWidthUint32,0,1,&id);
   if(!EFI_ERROR(status))status=pci->Pci.Read(pci,EfiPciIoWidthUint32,0x2c,1,&subsystem);
   GuLog("AMD GOP PCI parent: status=%#llx id=%#x subsystem=%#x\n",(unsigned long long)status,id,subsystem);
@@ -117,7 +117,13 @@ static BOOLEAN DisplayCheck(VOID) {
         /* EDK2 ConSplitter forwards QueryMode to its sole physical GOP. Accept
            that RGB/BGR result only on the system console, then match it against
             the one validated AMD GOP after enumeration (handle order varies). */
+#ifdef GU_PROFILE_Z890_3090_DELL
+        /* This firmware's aggregate GOP is not the console handle: the console is text only.
+           Still one only, and it must match the one physical GOP below. */
+        if(!forwarding) {
+#else
         if(handles[i]==Table->ConsoleOutHandle && !forwarding) {
+#endif
           forwarded=info;forwarding=TRUE;continue;
         }
       }
@@ -356,6 +362,10 @@ static EFI_STATUS Arm(VOID) {
     Gu.ticks+=100000;
   }
   return GuLogReady() && Gu.profile_verified && Gu.owned && Gu.prom_verified && Gu.display_ok && !Gu.fault && !PendingOwner.agent?EFI_SUCCESS:EFI_ACCESS_DENIED;
+#elif defined(GU_PROFILE_Z890_3090_DELL)
+  /* No key: the way out is Esc in HANDOFF's three seconds, before this image is even started. */
+  GuLogText("Z890: no key asked; starting the one guarded attempt.\n");
+  return GuLogReady() && Gu.profile_verified && !Gu.fault?EFI_SUCCESS:EFI_ACCESS_DENIED;
 #else
   if(!Table->ConIn || !Table->ConIn->Reset || !Table->ConIn->ReadKeyStroke)return EFI_UNSUPPORTED;
   EFI_STATUS status=Table->ConIn->Reset(Table->ConIn,FALSE);if(EFI_ERROR(status))return status;
@@ -429,7 +439,13 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
   UINT8 secure=0xff;UINTN bytes=1;
   Stage="secure-boot";
   status=St->RuntimeServices->GetVariable(L"SecureBoot",&GlobalGuid,NULL,&bytes,&secure);
+#ifdef GU_PROFILE_Z890_3090_DELL
+  /* Signed with the owner's key, enrolled in db: with Secure Boot on, firmware has verified this image. */
+  GuLog("secure boot variable: status=%#llx value=%u\n",(unsigned long long)status,(unsigned)secure);
+  if(EFI_ERROR(status) || bytes!=1){status=EFI_SECURITY_VIOLATION;goto finish;}
+#else
   if(EFI_ERROR(status) || bytes!=1 || secure){status=EFI_SECURITY_VIOLATION;goto finish;}
+#endif
   status=Step(status);if(EFI_ERROR(status))goto finish;
   Stage="watchdog";status=Step(Gu.bs->SetWatchdogTimer(0,0,0,NULL));if(EFI_ERROR(status))goto finish;
   Stage="target";status=Step(FindTarget());if(EFI_ERROR(status))goto finish;
@@ -528,5 +544,9 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
   GuReleaseAssets();
   if(!EFI_ERROR(status))GuConsole("UEFI transaction completed and cleaned up. Returning to firmware; Windows validation is pending.\n");
   else GuConsole("Attempt cancelled or rejected. Returning without another attempt.\n");
+#ifdef GU_PROFILE_Z890_3090_DELL
+  /* No release, no transaction: nothing of the GPU was written, so HANDOFF may go on to Windows. */
+  if(EFI_ERROR(status) && !attempted && !release_attempted)return EFI_NOT_STARTED;
+#endif
   return status;
 }

@@ -165,7 +165,11 @@ int GuDisplayPath(const EFI_DEVICE_PATH_PROTOCOL *Path, UINTN MaxBytes) {
   Bytes += sizeof(ACPI_HID_DEVICE_PATH);
   MaxBytes -= sizeof(ACPI_HID_DEVICE_PATH);
 
+#ifdef GU_PROFILE_Z890_3090_DELL
+  if (TakePci(&Bytes, &MaxBytes, 2, 0)) {
+#else
   if (TakePci(&Bytes, &MaxBytes, 8, 1) && TakePci(&Bytes, &MaxBytes, 0, 0)) {
+#endif
     Route = 1;
   } else if (TakePci(&Bytes, &MaxBytes, GU_ROOT_PORT_DEVICE, GU_ROOT_PORT_FUNCTION) && TakePci(&Bytes, &MaxBytes, 0, 0)) {
     Route = 2;
@@ -175,7 +179,11 @@ int GuDisplayPath(const EFI_DEVICE_PATH_PROTOCOL *Path, UINTN MaxBytes) {
   if (Route == 1) {
     if (NodeLength(Bytes, MaxBytes) != sizeof(ACPI_ADR_DEVICE_PATH) ||
         Bytes[0] != ACPI_DEVICE_PATH || Bytes[1] != ACPI_ADR_DP ||
+#ifdef GU_PROFILE_Z890_3090_DELL
+        Read32(Bytes + 4) != 0x80013341U) return 0;
+#else
         Read32(Bytes + 4) != 0x80010300U) return 0;
+#endif
     Bytes += sizeof(ACPI_ADR_DEVICE_PATH);
     MaxBytes -= sizeof(ACPI_ADR_DEVICE_PATH);
     if (NodeLength(Bytes, MaxBytes) != 4 || Bytes[0] != END_DEVICE_PATH_TYPE ||

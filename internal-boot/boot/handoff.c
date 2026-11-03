@@ -49,6 +49,9 @@ static EFI_SYSTEM_TABLE *Table;
 static EFI_HANDLE Self,OwnDevice,WindowsImage;
 #ifndef GU_DIAGNOSTIC_ONLY
 static EFI_HANDLE UnlockImage;
+#ifdef GU_WINDOWS_IF_UNTOUCHED
+static BOOLEAN NoUnlockImage;
+#endif
 #endif
 static EFI_FILE_PROTOCOL *Root,*Log;
 /* Close each owned handle once, even when the first close fails. A failed
@@ -239,7 +242,12 @@ static EFI_STATUS Prepare(VOID *Context) {
   s=OpenLog();if(s!=EFI_SUCCESS)return s;
   s=Record(NULL,"internal-handoff-v1",EFI_SUCCESS);if(s!=EFI_SUCCESS)return s;
 #ifndef GU_DIAGNOSTIC_ONLY
-  s=LoadUnlock();if(s!=EFI_SUCCESS)return s;
+  s=LoadUnlock();
+#ifdef GU_WINDOWS_IF_UNTOUCHED
+  /* A missing or refused image has touched nothing: Windows, as this boot entry promises. */
+  if(s!=EFI_SUCCESS){EFI_STATUS logged=Record(NULL,"unlock-image-refused",s);if(logged!=EFI_SUCCESS)return logged;NoUnlockImage=TRUE;s=EFI_SUCCESS;}
+#endif
+  if(s!=EFI_SUCCESS)return s;
 #endif
   EFI_DEVICE_PATH_PROTOCOL *path=NULL;
   s=FilePath(windows,L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi",&path);
@@ -256,8 +264,14 @@ static EFI_STATUS Select(VOID *Context,BOOLEAN *Skip) {
   (void)Context;*Skip=FALSE;
   if(!Table->ConIn)return EFI_UNSUPPORTED;
   EFI_STATUS s=Table->ConIn->Reset(Table->ConIn,FALSE);if(s!=EFI_SUCCESS)return s;
+#ifdef GU_WINDOWS_IF_UNTOUCHED
+  if(NoUnlockImage){*Skip=TRUE;return EFI_SUCCESS;}
+  Say(L"Windows GPU UNLOCK: Esc within 3 seconds for Windows only. No key needed.\r\n");
+  for(UINTN i=0;i<30;i++) {
+#else
   Say(L"Windows GPU UNLOCK: press Esc within 5 seconds for Windows only.\r\nOtherwise the unlock application opens and still requires U once.\r\n");
   for(UINTN i=0;i<50;i++) {
+#endif
     EFI_INPUT_KEY key;s=Table->ConIn->ReadKeyStroke(Table->ConIn,&key);
     if(s==EFI_SUCCESS && (key.ScanCode==0x17 || key.UnicodeChar==27)){*Skip=TRUE;return EFI_SUCCESS;}
     if(s!=EFI_SUCCESS && s!=EFI_NOT_READY)return s;
@@ -268,7 +282,17 @@ static EFI_STATUS Select(VOID *Context,BOOLEAN *Skip) {
 #endif
 static EFI_STATUS Unlock(VOID *Context) {
   (void)Context;
+#ifdef GU_WINDOWS_IF_UNTOUCHED
+  EFI_STATUS s=Table->BootServices->StartImage(UnlockImage,NULL,NULL);
+  if(s==EFI_NOT_STARTED) {
+    Say(L"GPU not touched. Starting Windows without the unlock.\r\n");
+    EFI_STATUS logged=Record(NULL,"unlock-skipped-gpu-untouched",s);
+    return logged;
+  }
+  return s;
+#else
   return Table->BootServices->StartImage(UnlockImage,NULL,NULL);
+#endif
 }
 #endif
 #ifdef GU_FULL_UNLOCK

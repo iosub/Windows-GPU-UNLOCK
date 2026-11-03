@@ -18,10 +18,10 @@
 #error GPU family and firmware must be derived from the selected machine profile
 #endif
 
-#if (defined(GU_PROFILE_B650M_3090FE) + defined(GU_PROFILE_B660M_3070TI) + defined(GU_PROFILE_B660M_3090TI) + defined(GU_PROFILE_X870_3090TI) + defined(GU_PROFILE_B660PLUS_3060) + defined(GU_PROFILE_LOCAL) + defined(GU_PROFILE_H610M_3060) + defined(GU_PROFILE_PROBE_H610M_3060)) > 1
+#if (defined(GU_PROFILE_Z890_3090_DELL) + defined(GU_PROFILE_B650M_3090FE) + defined(GU_PROFILE_B660M_3070TI) + defined(GU_PROFILE_B660M_3090TI) + defined(GU_PROFILE_X870_3090TI) + defined(GU_PROFILE_B660PLUS_3060) + defined(GU_PROFILE_LOCAL) + defined(GU_PROFILE_H610M_3060) + defined(GU_PROFILE_PROBE_H610M_3060)) > 1
 #error Select exactly one machine profile
 #endif
-#if !defined(GU_PROFILE_B650M_3090FE) && !defined(GU_PROFILE_B660M_3070TI) && !defined(GU_PROFILE_B660M_3090TI) && !defined(GU_PROFILE_X870_3090TI) && !defined(GU_PROFILE_B660PLUS_3060) && !defined(GU_PROFILE_LOCAL) && !defined(GU_PROFILE_H610M_3060) && !defined(GU_PROFILE_PROBE_H610M_3060)
+#if !defined(GU_PROFILE_Z890_3090_DELL) && !defined(GU_PROFILE_B650M_3090FE) && !defined(GU_PROFILE_B660M_3070TI) && !defined(GU_PROFILE_B660M_3090TI) && !defined(GU_PROFILE_X870_3090TI) && !defined(GU_PROFILE_B660PLUS_3060) && !defined(GU_PROFILE_LOCAL) && !defined(GU_PROFILE_H610M_3060) && !defined(GU_PROFILE_PROBE_H610M_3060)
 #define GU_PROFILE_B650M_3090FE 1
 #endif
 
@@ -168,6 +168,29 @@
   2,1,12,0,0xd0,0x41,3,10,0,0,0,0,1,1,6,0,0,1,1,1,6,0,0,0,2,3,8,0,32,3,1,128,127,255,4,0
 #define GU_FIRMWARE_PROFILE GU_FIRMWARE_AMI_B660M_4003
 
+#elif defined(GU_PROFILE_Z890_3090_DELL)
+
+/* ASUSTeK ProArt Z890-CREATOR WIFI BIOS 3305, Core Ultra 7 265, Dell OEM RTX 3090 24GB
+ * (10de:2204, subsystem 1028:3880, VBIOS 94.02.59.00.d6) at 02:00.0 behind root port
+ * 06.0. The console is on the Intel iGPU (8086:7d67), the RTX has no display: nvgop
+ * holds its PciIo BY_DRIVER with no children, the manual child's release case. Values
+ * from three read-only captures (2026-10-24 and 2026-11-02), same PROM hash in each.
+ * Manual internal build only; the console/EDID fingerprints below are unused by it.
+ * No display child exists, so this RTX path never matches a GOP. */
+#define GU_PROFILE_NAME "ASUS-PROART-Z890-CREATOR-WIFI-3305-DELL-RTX3090"
+#define GU_BOARD_ID 0x220410deU
+#define GU_BOARD_SUBSYSTEM 0x38801028U
+#define GU_BAR0_BASE 0x8d000000ULL
+#define GU_BAR0_END 0x8dffffffULL
+#define GU_DEVICE_MEMORY_SIZE 0x6000U
+#define GU_GPU_FAMILY GU_GPU_FAMILY_GA102
+#define GU_PROM_SHA256 "9f8d2c03001a385537cec037024e872aa7f8cf2b8bbf16a88bd637b1b55eb126"
+#define GU_TARGET_BUS 2U
+#define GU_ROOT_PORT_DEVICE 6U
+#define GU_ROOT_PORT_FUNCTION 0U
+#define GU_RTX_PATH_BYTES 2,1,12,0,0xd0,0x41,3,10,0,0,0,0,1,1,6,0,0,6,1,1,6,0,0,0,2,3,8,0,32,3,1,128,127,255,4,0
+#define GU_FIRMWARE_PROFILE GU_FIRMWARE_AMI_B660M_4003
+
 #elif defined(GU_PROFILE_B660M_3090TI)
 
 /* ASUSTeK TUF GAMING B660M-E D4 BIOS 4003, i7-12700F (no iGPU),
@@ -270,7 +293,7 @@
 #if GU_TARGET_BUS < 1 || GU_TARGET_BUS > 255
 #error GU_TARGET_BUS must be in 1..255
 #endif
-#if GU_TARGET_BUS != 1U && !defined(GU_PROFILE_LOCAL)
+#if GU_TARGET_BUS != 1U && !defined(GU_PROFILE_LOCAL) && !defined(GU_PROFILE_Z890_3090_DELL)
 #error A non-default GU_TARGET_BUS is only for a generated local profile
 #endif
 

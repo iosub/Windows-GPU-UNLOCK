@@ -99,7 +99,8 @@ EFI_STATUS GuIoOpen(EFI_HANDLE Image,EFI_SYSTEM_TABLE *St) {
 #endif
   if(EFI_ERROR(status) || !Parent)return EFI_NOT_FOUND;
   status=Metadata(Parent,TRUE,0);if(EFI_ERROR(status))return status;
-#ifdef GU_AUTOMATIC_BOOT
+/* Z890 also runs at every boot: a hundred RUNnn folders would end its unlocks silently. */
+#if defined(GU_AUTOMATIC_BOOT) || defined(GU_PROFILE_Z890_3090_DELL)
   for(UINTN slot=0;slot<1000000;slot++) {
     CHAR16 name[]=L"AUTO000000";UINTN number=slot;
     for(UINTN digit=0;digit<6;digit++){name[9-digit]=(CHAR16)('0'+number%10);number/=10;}
